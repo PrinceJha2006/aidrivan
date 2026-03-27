@@ -40,6 +40,16 @@ export async function analyzeDataset(count = 10, handle = "") {
   return res.json();
 }
 
+export async function analyzeRows(rows, count = 10) {
+  const res = await fetch(`${API_BASE}/api/analyze`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mode: "rows", rows, count }),
+  });
+  if (!res.ok) throw new Error("Failed to analyze rows");
+  return res.json();
+}
+
 export async function analyzeDownloadDataset(count = 10, handle = "") {
   const form = new FormData();
   form.append("count", String(count));

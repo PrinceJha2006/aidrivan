@@ -1,7 +1,7 @@
 import { useState } from "react";
 import AgentPanel from "./components/AgentPanel";
 import ClassicResultView from "./components/ClassicResultView";
-import { analyzeFile, analyzeHandle, analyzeUrls, askAgent, askAgentic } from "./lib/api";
+import { analyzeFile, analyzeHandle, analyzeRows, analyzeUrls, askAgent, askAgentic } from "./lib/api";
 
 export default function App() {
   const [summary, setSummary] = useState({
@@ -53,7 +53,14 @@ export default function App() {
           setUrlLoading(false);
           return;
         }
-        data = await analyzeHandle(handle.trim(), tweetCount);
+        const cleanHandle = handle.trim().replace(/^@/, "").toLowerCase();
+        const localHandleRows = rows
+          .filter((item) => String(item.user || "").replace(/^@/, "").toLowerCase() === cleanHandle)
+          .slice(0, tweetCount);
+
+        data = localHandleRows.length
+          ? await analyzeRows(localHandleRows, tweetCount)
+          : await analyzeHandle(handle.trim(), tweetCount);
       } else if (inputMethod === "file") {
         if (!uploadFile) {
           setError("Please select a CSV or Excel file first.");
@@ -75,14 +82,25 @@ export default function App() {
           return;
         }
 
-        const hasSimulatedUrl = urls.some((item) => /simulated_/i.test(item));
-        if (hasSimulatedUrl) {
-          setError("Detected simulated/sample URLs from sheet. Please use File Upload mode for that Excel/CSV data.");
-          setUrlLoading(false);
-          return;
-        }
+        const byUrl = new Map(
+          rows.map((item) => [String(item.source_url || "").toLowerCase().trim(), item])
+        );
+        const localMatches = urls
+          .map((u) => byUrl.get(String(u).toLowerCase().trim()))
+          .filter(Boolean)
+          .slice(0, tweetCount);
 
-        data = await analyzeUrls(urls, tweetCount);
+        if (localMatches.length) {
+          data = await analyzeRows(localMatches, tweetCount);
+        } else {
+          const hasSimulatedUrl = urls.some((item) => /simulated_/i.test(item));
+          if (hasSimulatedUrl) {
+            setError("Simulated URLs need matching uploaded rows. First upload the sheet, then use URL mode.");
+            setUrlLoading(false);
+            return;
+          }
+          data = await analyzeUrls(urls, tweetCount);
+        }
       }
 
       setSummary(data.summary);
