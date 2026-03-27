@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: twitter-analytics
+    runtime: python
+    buildCommand: |
+      echo "🚀 Installing frontend dependencies..."
+      cd frontend
+      npm install
+      echo "🚀 Building frontend..."
+      node node_modules/vite/bin/vite.js build
+      cd ..
+      echo "🚀 Installing backend dependencies..."
+      cd backend
+      pip install -r requirements.txt
+      cd ..
+    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: PYTHON_VERSION
+        value: 3.11.11
