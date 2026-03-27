@@ -1,7 +1,7 @@
 import { useState } from "react";
 import AgentPanel from "./components/AgentPanel";
 import ClassicResultView from "./components/ClassicResultView";
-import { analyzeHandle, analyzeUrls, askAgent, askAgentic } from "./lib/api";
+import { analyzeFile, analyzeHandle, analyzeUrls, askAgent, askAgentic } from "./lib/api";
 
 export default function App() {
   const [summary, setSummary] = useState({
@@ -24,6 +24,7 @@ export default function App() {
   const [singleUrl, setSingleUrl] = useState("");
   const [multipleUrls, setMultipleUrls] = useState("");
   const [handle, setHandle] = useState("");
+  const [uploadFile, setUploadFile] = useState(null);
   const [tweetCount, setTweetCount] = useState(10);
 
   async function handleAgentAsk(question, mode = "agentic") {
@@ -53,6 +54,13 @@ export default function App() {
           return;
         }
         data = await analyzeHandle(handle.trim(), tweetCount);
+      } else if (inputMethod === "file") {
+        if (!uploadFile) {
+          setError("Please select a CSV or Excel file first.");
+          setUrlLoading(false);
+          return;
+        }
+        data = await analyzeFile(uploadFile, tweetCount);
       } else {
         const urlText = inputMethod === "single" ? singleUrl : multipleUrls;
         const urls = urlText
@@ -66,6 +74,14 @@ export default function App() {
           setUrlLoading(false);
           return;
         }
+
+        const hasSimulatedUrl = urls.some((item) => /simulated_/i.test(item));
+        if (hasSimulatedUrl) {
+          setError("Detected simulated/sample URLs from sheet. Please use File Upload mode for that Excel/CSV data.");
+          setUrlLoading(false);
+          return;
+        }
+
         data = await analyzeUrls(urls, tweetCount);
       }
 
@@ -93,9 +109,9 @@ export default function App() {
 
       <section className="mt-6 card animate-rise">
         <h3 className="text-lg font-semibold text-ink">Input Method</h3>
-        <p className="mt-1 text-sm text-slate-500">Choose single URL, multiple URLs, or Twitter handle.</p>
+        <p className="mt-1 text-sm text-slate-500">Choose single URL, multiple URLs, Twitter handle, or upload file.</p>
 
-        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+        <div className="mt-3 grid gap-2 sm:grid-cols-4">
           <label className="flex items-center gap-2 text-sm text-slate-700">
             <input type="radio" name="inputMethod" checked={inputMethod === "single"} onChange={() => setInputMethod("single")} />
             Single URL
@@ -107,6 +123,10 @@ export default function App() {
           <label className="flex items-center gap-2 text-sm text-slate-700">
             <input type="radio" name="inputMethod" checked={inputMethod === "handle"} onChange={() => setInputMethod("handle")} />
             Twitter Handle
+          </label>
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input type="radio" name="inputMethod" checked={inputMethod === "file"} onChange={() => setInputMethod("file")} />
+            File Upload
           </label>
         </div>
 
@@ -135,6 +155,18 @@ export default function App() {
             value={handle}
             onChange={(e) => setHandle(e.target.value)}
           />
+        ) : null}
+
+        {inputMethod === "file" ? (
+          <div className="mt-3">
+            <input
+              type="file"
+              accept=".csv,.xlsx,.xls"
+              className="w-full rounded-xl border border-slate-200 p-3 outline-none focus:border-sky"
+              onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+            />
+            <p className="mt-2 text-xs text-slate-500">Upload your Excel/CSV sheet directly for analysis.</p>
+          </div>
         ) : null}
 
         <div className="mt-4 max-w-xs">
